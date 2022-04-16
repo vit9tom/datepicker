@@ -11,7 +11,6 @@
 			:placeholder="$t('chooseDate')"
 			v-model.lazy="russianDate"
 			@change="setRussianDate"
-			@keyup="mask"
 			ref="input"
 			maxlength="10"
 		/>
@@ -43,7 +42,7 @@
 		                    class="svg-inline--fa fa-chevron-left fa-w-10"
 		                    role="img" xmlns="http://www.w3.org/2000/svg"
 		                    viewBox="0 0 320 512">
-		                    <path fill="currentColor"
+		                    <path
 		                          d="M34.52 239.03L228.87 44.69c9.37-9.37 24.57-9.37 33.94 0l22.67 22.67c9.36 9.36 9.37 24.52.04 33.9L131.49 256l154.02 154.75c9.34 9.38 9.32 24.54-.04 33.9l-22.67 22.67c-9.37 9.37-24.57 9.37-33.94 0L34.52 272.97c-9.37-9.37-9.37-24.57 0-33.94z">
 		                    </path>
 	                    </svg>
@@ -60,7 +59,7 @@
 			                aria-hidden="true" focusable="false" data-prefix="fas" data-icon="chevron-down" role="img"
 			                xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"
 		                >
-			                <path fill="currentColor"
+			                <path
 			                      d="M207.029 381.476L12.686 187.132c-9.373-9.373-9.373-24.569 0-33.941l22.667-22.667c9.357-9.357 24.522-9.375 33.901-.04L224 284.505l154.745-154.021c9.379-9.335 24.544-9.317 33.901.04l22.667 22.667c9.373 9.373 9.373 24.569 0 33.941L240.971 381.476c-9.373 9.372-24.569 9.372-33.942 0z">
 			                </path>
 		                </svg>
@@ -91,14 +90,14 @@
                 <span class="datepicker-day"
                       :class="{
                         'datepicker-day__disabled': day.disabled,
-                        'datepicker-day__active': day.str === selectedDate.getDate() && month.index === selectedDate.getMonth() && month.year === selectedDate.getFullYear()
+                        'datepicker-day__active': day.number === selectedDate.getDate() && month.index === selectedDate.getMonth() && month.year === selectedDate.getFullYear()
                       }"
                       :style="dayStyle"
                       v-for="day in month.datesArr"
-                      :key="+day.str"
+                      :key="day.number"
                       @click="selectDate(day.date)"
                 >
-                    {{ day.str }}
+                    {{ day.number }}
                 </span>
 				</div>
 			</template>
@@ -118,7 +117,7 @@
 						:key="n"
 						:id="n"
 						@wheel.prevent="onWheel($event, 'year')"
-						@click="selectYear(n)"
+						@click="selectYear(n.toString())"
 					>
 						{{ n }}
 					</div>
@@ -149,19 +148,116 @@
 	</div>
 </template>
 
-<script>
-export default {
-	props: [
-		'minDateStr', // yyyy-mm-dd
-		'maxDateStr', // yyyy-mm-dd
-		'defaultDateStr', // yyyy-mm-dd
-		'holidays' // [6,7]
-	],
+<script lang="ts">
+import type {TDateKebab} from '@/plugins/dates'
+import {getDateFromKebab} from '@/plugins/dates'
+import {computed, defineComponent, PropType, ref, reactive} from "vue";
+
+type TWheel = 'year' | 'month';
+
+export default defineComponent({
+	props: {
+		minDateStr: {
+			type: String as PropType<TDateKebab>,
+			required: true
+		},
+		maxDateStr: {
+			type: String as PropType<TDateKebab>,
+			required: true
+		},
+		defaultDateStr: {
+			type: String as PropType<TDateKebab>,
+			required: true
+		},
+		holidays: {
+			type: Array as PropType<number[]>,
+			required: false
+		}
+	},
+	setup(props, context) {
+		let selectedDate = ref<Date>(new Date());
+		let visible = ref<Boolean>(false);
+		let hasToOpen = ref<Boolean>(true);
+
+
+		type TMonthObj = {
+			index: number,
+			name: string,
+			year: string,
+			datesArr: Array<{
+				date: Date,
+				number: number
+			}>
+		}
+
+		let month = ref<TMonthObj>({
+			index: 0,
+			name: 'Январь',
+			year: '2019',
+			datesArr: [{
+				date: new Date(),
+				number: 1
+			}]
+		});
+		let russianDate = ref<String>('');
+		let dayStyle = ref<String>('');
+		let yearSelectOpened = ref<Boolean>(false);
+
+		let minDate = computed<Date>(() => getDateFromKebab(props.minDateStr));
+		let minYear = computed<number>(() => minDate.value.getFullYear());
+		let maxDate = computed<Date>(() => getDateFromKebab(props.maxDateStr));
+		let maxYear = computed<number>(() => maxDate.value.getFullYear());
+		let defaultDate = computed<Date>(() => getDateFromKebab(props.defaultDateStr));
+
+		let hasPreviousMonth = computed<Boolean>(() => +month.value.year > minYear.value
+			|| (+month.value.year === minYear.value && month.value.index > minDate.value.getMonth()));
+		let hasNextMonth = computed<Boolean>(() => +month.value.year < maxYear.value
+			|| (+month.value.year === maxYear.value && month.value.index < maxDate.value.getMonth()));
+
+		let yearsArr = computed<number[]>(() => {
+			let arr = [];
+			for (let y = minYear.value; y <= maxYear.value; y++) arr.push(y);
+			return arr;
+		});
+
+		const isHoliday = (date: Date): Boolean => {
+			if (!props.holidays) return false;
+			const week = [7, 1, 2, 3, 4, 5, 6];
+			return props.holidays.includes(week[date.getDay()]);
+		}
+
+		const isDisabled = (date: Date): Boolean => {
+			return (
+				date.getTime() < minDate.value.getTime()
+				|| isHoliday(date)
+				|| date.getTime() > maxDate.value.getTime()
+			);
+		}
+
+		let isInvalid = computed<Boolean>(() => isDisabled(selectedDate.value));
+
+		return {
+			selectedDate,
+			visible,
+			hasToOpen,
+			month,
+			russianDate,
+			dayStyle,
+			yearSelectOpened,
+			minDate,
+			minYear,
+			maxYear,
+			maxDate,
+			defaultDate,
+			hasPreviousMonth,
+			hasNextMonth,
+			yearsArr,
+			isDisabled,
+			isInvalid
+		}
+	},
 	data() {
 		return {
-			selectedDate: new Date(),
-			visible: false,
-			hasToOpen: true,
 			localMonthsArr: [
 				this.$t('january'),
 				this.$t('february'),
@@ -175,78 +271,21 @@ export default {
 				this.$t('october'),
 				this.$t('november'),
 				this.$t('december')
-			],
-			month: {
-				index: 0,
-				name: 'Январь',
-				year: 2019,
-				datesArr: [{
-					date: new Date(),
-					str: 1
-				}]
-			},
-			russianDate: '',
-			dayStyle: '',
-			yearSelectOpened: false
+			]
 		}
 	},
 	computed: {
-		minDate() {
-			let dateArr = this.minDateStr.split('-').map(str => +str);
-			dateArr[1]--;
-			return new Date(...dateArr);
-		},
-		maxDate() {
-			let dateArr = this.maxDateStr.split('-').map(str => +str);
-			dateArr[1]--;
-			return new Date(...dateArr);
-		},
-		defaultDate() {
-			if (!this.defaultDateStr) return undefined;
-			let dateArr = this.defaultDateStr.split('-').map(str => +str);
-			if (dateArr.find(d => isNaN(d))) return new Date();
-			dateArr[1]--;
-			return new Date(...dateArr);
-		},
-		hasPreviousMonth() {
-			return (
-				this.month.year > this.minDate.getFullYear()
-				|| (this.month.year === this.minDate.getFullYear()
-					&& this.month.index > this.minDate.getMonth())
-			);
-		},
-		hasNextMonth() {
-			return (
-				this.month.year < this.maxDate.getFullYear()
-				|| (this.month.year === this.maxDate.getFullYear()
-					&& this.month.index < this.maxDate.getMonth())
-			);
-		},
-		yearsArr() {
-			let arr = [];
-			const minYear = this.minDate.getFullYear();
-			const maxYear = this.maxDate.getFullYear();
-			for (let y = minYear; y <= maxYear; y++) {
-				arr.push(y);
-			}
-			return arr;
-		},
 		monthsArr() {
-			const openedYear = this.month.year;
-			const minYear = this.minDate.getFullYear();
-			const maxYear = this.maxDate.getFullYear();
+			const openedYear = +this.month.year;
 			let arr = [...this.localMonthsArr];
-			if (openedYear === minYear) {
+			if (openedYear === this.minYear) {
 				const firstMonthIndex = this.minDate.getMonth();
 				arr = this.localMonthsArr.slice(firstMonthIndex);
-			} else if (openedYear === maxYear) {
+			} else if (openedYear === this.maxYear) {
 				const lastMonthIndex = this.maxDate.getMonth();
 				arr = this.localMonthsArr.slice(0, lastMonthIndex + 1);
 			}
 			return arr;
-		},
-		isInvalid() {
-			return this.isDisabled(this.selectedDate);
 		}
 	},
 	watch: {
@@ -274,9 +313,9 @@ export default {
 			this.$nextTick(() => {
 				if (!val) return;
 				if (!this.$refs.daysContainer) return;
-				const width = this.$refs.daysContainer.offsetWidth / 7;
+				const width = (this.$refs.daysContainer as any).offsetWidth / 7;
 				this.dayStyle = `height: ${width}px`;
-				this.$refs.calendar.style.height = 80 + width * 6 + 'px';
+				(this.$refs.calendar as any).style.height = 80 + width * 6 + 'px';
 			});
 		}
 	},
@@ -289,90 +328,80 @@ export default {
 		}
 		this.selectDate(this.selectedDate);
 		this.month.index = this.selectedDate.getMonth();
-		this.month.year = this.selectedDate.getFullYear();
+		this.month.year = this.selectedDate.getFullYear().toString();
 		this.setMonth();
 
-		let isYearsScrolling;
-		this.$refs.years.addEventListener('scroll', () => {
-			window.clearTimeout(isYearsScrolling);
-			isYearsScrolling = setTimeout(() => {
-				this.handleScroll('year');
-			}, 100);
-		});
-
-		let isMonthsScrolling;
-		this.$refs.months.addEventListener('scroll', () => {
-			window.clearTimeout(isMonthsScrolling);
-			isMonthsScrolling = setTimeout(() => {
-				this.handleScroll('month');
-			}, 100);
-		});
+		for (let field of ['year', 'month']) {
+			let scrollingTimeout: any;
+			(this.$refs[field + 's'] as any).addEventListener('scroll', () => {
+				window.clearTimeout(scrollingTimeout);
+				scrollingTimeout = setTimeout(() => {
+					this.handleScroll(field as TWheel);
+				}, 100);
+			});
+		}
 	},
 	methods: {
-		hide() {
+		hide(): void {
 			setTimeout(() => {
 				this.visible = false;
 			}, 100);
 		},
-		show() {
+		show(): void {
 			this.visible = true;
 			setTimeout(() => {
 				this.setMonth();
 			}, 0);
 			setTimeout(() => {
-				this.$refs.calendar.focus();
+				(this.$refs.calendar as any).focus();
 			}, 100);
 		},
-		toggle() {
+		toggle(): void {
 			this.visible ? this.hide() : this.show();
 		},
-		setMonthDatesArr(monthIndex, year) {
-			const daysInMonth = 32 - new Date(year, monthIndex, 32).getDate();
+		setMonth(): void {
+			const {index, year} = this.month;
+			this.month.name = this.localMonthsArr[index];
+			const daysInMonth = 32 - new Date(+year, index, 32).getDate();
 			this.month.datesArr = [];
-
-			for (let i = 1; i <= daysInMonth; i++) {
-				const date = new Date(year, monthIndex, i);
-				this.month.datesArr.push({
+			for (let day = 1; day <= daysInMonth; day++) {
+				const date: Date = new Date(+year, index, day);
+				const obj = {
 					date,
-					str: i,
+					number: day,
 					disabled: this.isDisabled(date)
-				});
+				}
+				this.month.datesArr.push(obj);
 			}
-		},
-		setMonth() {
-			this.month.name = this.localMonthsArr[this.month.index];
-			this.setMonthDatesArr(this.month.index, this.month.year);
 			const americanWeek = [6, 0, 1, 2, 3, 4, 5];
 			const firstDay = americanWeek[this.month.datesArr[0].date.getDay()];
 			this.$nextTick(() => {
 				if (this.$refs.datepicker) {
-					const firstDayNode = this.$refs.datepicker.querySelector('.datepicker-day');
-					if (firstDayNode) {
-						firstDayNode.style.marginLeft = `calc(${firstDay} * 100% / 7)`;
-					}
+					const firstDayNode = (this.$refs.datepicker as any).querySelector('.datepicker-day');
+					if (firstDayNode) firstDayNode.style.marginLeft = `calc(${firstDay} * 100% / 7)`;
 				}
 			});
 			this.month = Object.assign({}, this.month);
 		},
-		setPreviousMonth() {
+		setPreviousMonth(): void {
 			if (this.month.index === 0) {
-				this.month.year--;
+				this.month.year = (+this.month.year - 1).toString()
 				this.month.index = 11;
 			} else {
 				this.month.index--;
 			}
 			this.setMonth();
 		},
-		setNextMonth() {
+		setNextMonth(): void {
 			if (this.month.index === 11) {
-				this.month.year++;
+				this.month.year = (+this.month.year + 1).toString()
 				this.month.index = 0;
 			} else {
 				this.month.index++;
 			}
 			this.setMonth();
 		},
-		selectDate(date) {
+		selectDate(date: Date): void {
 			if (date < this.minDate) {
 				this.selectedDate = this.minDate;
 			} else if (date > this.maxDate) {
@@ -380,7 +409,7 @@ export default {
 			} else {
 				this.selectedDate = date;
 			}
-			this.month.year = this.selectedDate.getFullYear();
+			this.month.year = this.selectedDate.getFullYear().toString();
 			this.month.index = this.selectedDate.getMonth();
 			this.russianDate = [
 				('0' + this.selectedDate.getDate()).slice(-2),
@@ -388,21 +417,17 @@ export default {
 				this.month.year
 			].join('.');
 		},
-		setRussianDate(e) {
-			let str = e.target.value.replace(/\D/g, "");
+		setRussianDate(e: Event): void {
+			let str = (e.target as HTMLInputElement).value.replace(/\D/g, "");
 			let val = str.slice(0, 2) + '.' + str.slice(2, 4) + '.' + str.slice(-4);
 			if (!str) {
 				this.selectDate(this.minDate);
 				return;
 			}
-			const dateArr = val.split('.').map(str => +str).reverse();
+			const dateArr = val.split('.').map(p => +p).reverse();
 			dateArr[1]--;
-			let userDate = new Date(...dateArr);
-			if (userDate > this.maxDate) {
-				this.selectDate(this.maxDate);
-			} else if (userDate < this.minDate) {
-				this.selectDate(this.minDate);
-			} else if (this.isDisabled(userDate)) {
+			const userDate = new Date(dateArr[0], dateArr[1], dateArr[2]);
+			if (this.isDisabled(userDate)) {
 				let date = new Date(userDate);
 				while (this.isDisabled(date)) {
 					date.setDate(date.getDate() - 1);
@@ -412,52 +437,44 @@ export default {
 				this.selectDate(userDate);
 			}
 		},
-		onWheel(e, field) {
-			const wheel = field === 'year' ? this.$refs.years : this.$refs.months;
+		onWheel(e: WheelEvent, field: TWheel): void {
+			const wheel: HTMLElement = this.$refs[field + 's'] as HTMLElement;
 			const newPos = e.deltaY > 0 ? wheel.scrollTop + 40 : wheel.scrollTop - 40;
 			wheel.scroll({
 				top: newPos
 			});
 		},
-		handleScroll(field) {
-			const wheel = field === 'year' ? this.$refs.years : this.$refs.months;
-			const nodes = [...wheel.querySelectorAll('.datepicker-wheel-item')];
-			const getPosition = n => {
+		handleScroll(field: TWheel): void {
+			const _ = this;
+			const wheel: HTMLElement = _.$refs[field + 's'] as HTMLElement;
+			const nodes: Element[] = [...wheel.querySelectorAll('.datepicker-wheel-item')];
+			const getPosition = (n: Element): number => {
 				const pos = n.getBoundingClientRect().top - wheel.getBoundingClientRect().top;
 				return Math.round(pos);
 			}
-			let selectedNode = nodes.find(n => getPosition(n) >= 80 && getPosition(n) < 120);
-			if (!selectedNode) {
-				if (wheel.scrollTop < 80) {
-					selectedNode = nodes[0];
-				} else {
-					selectedNode = nodes[nodes.length - 1];
-				}
-			}
-
+			const selectedNode = nodes.find(n => getPosition(n) >= 80 && getPosition(n) < 120)
+				?? wheel.scrollTop < 80 ? nodes[0] : nodes[nodes.length - 1];
 			const selected = selectedNode.id;
 			if (field === 'year') {
-				this.month.year = +selected;
-				this.scrollToItem('year', +selected);
-				if (!this.monthsArr.includes(this.month.name)) {
-					this.month.name = this.monthsArr[0];
-					this.month.index = this.localMonthsArr.indexOf(this.monthsArr[0]);
-					this.scrollToItem('month', this.month.name);
+				_.month.year = selected;
+				_.scrollToItem('year', selected);
+				if (!_.monthsArr.includes(_.month.name)) {
+					_.month.name = _.monthsArr[0];
+					_.month.index = _.localMonthsArr.indexOf(_.monthsArr[0]);
 				}
 			} else {
-				this.month.name = selected;
-				this.month.index = this.localMonthsArr.indexOf(selected);
-				this.scrollToItem('month', this.month.name);
+				_.month.name = selected;
+				_.month.index = _.localMonthsArr.indexOf(selected);
 			}
+			_.scrollToItem('month', _.month.name);
 		},
-		scrollToItem(field, item) {
-			let wheel, top;
+		scrollToItem(field: TWheel, item: string) {
+			let wheel: HTMLElement = this.$refs[field + 's'] as HTMLElement;
+			let top: number;
 			if (field === 'year') {
-				wheel = this.$refs.years;
-				const startYear = this.yearsArr[0];
+				const startYear = this.minYear;
 				top = (+item - startYear) * 40;
-			} else if (field === 'month') {
-				wheel = this.$refs.months;
+			} else {
 				const index = this.localMonthsArr.indexOf(item);
 				const startIndex = this.localMonthsArr.indexOf(this.monthsArr[0]);
 				top = (index - startIndex) * 40;
@@ -466,11 +483,11 @@ export default {
 				top
 			});
 		},
-		selectYear(y) {
+		selectYear(y: string) {
 			this.month.year = y;
 			this.scrollToItem('year', y);
 		},
-		selectMonth(m) {
+		selectMonth(m: string) {
 			this.month.name = m;
 			this.month.index = this.localMonthsArr.indexOf(m);
 			this.scrollToItem('month', m);
@@ -495,40 +512,29 @@ export default {
 				this.hide();
 			}
 		},
-		isHoliday(date) {
-			if (!this.holidays) return false;
-			const week = [7, 1, 2, 3, 4, 5, 6];
-			return this.holidays.includes(week[date.getDay()]);
-		},
-		isDisabled(date) {
-			return (
-				date.getTime() < this.minDate.getTime()
-				|| this.isHoliday(date)
-				|| date.getTime() > this.maxDate.getTime()
-			);
-		},
-		mask(e) {
-			e.target.value = e.target.value.replace(/[^\d\.]/g, "");
+		mask(e: KeyboardEvent): void {
+			const input: HTMLInputElement = e.target as HTMLInputElement;
+			input.value = input.value.replace(/[^\d\.]/g, "");
 			if (e.key !== 'Backspace' && e.key !== '.') {
-				let arr = e.target.value.split('');
-				switch (e.target.value.length) {
+				let arr = input.value.split('');
+				switch (input.value.length) {
 					case 2:
 						arr[2] = '.';
-						e.target.value = arr.join('');
+						input.value = arr.join('');
 						break;
 					case 3:
 						arr[3] = arr[2]
 						arr[2] = '.';
-						e.target.value = arr.join('');
+						input.value = arr.join('');
 						break;
 					case 5:
 						arr[5] = '.';
-						e.target.value = arr.join('');
+						input.value = arr.join('');
 						break;
 					case 6:
 						arr[6] = arr[5]
 						arr[5] = '.';
-						e.target.value = arr.join('');
+						input.value = arr.join('');
 						break;
 					default:
 						break;
@@ -536,7 +542,7 @@ export default {
 			}
 		}
 	}
-}
+})
 </script>
 
 <style lang="less">
