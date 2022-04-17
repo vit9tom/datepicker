@@ -37,14 +37,15 @@
 
 			<template v-if="!yearSelectOpened">
 				<div class="datepicker-header">
-	                <span class="datepicker-month-arrow datepicker-month-arrow-previous" v-show="hasPreviousMonth" @click="setPreviousMonth">
+	                <span v-show="hasPreviousMonth" class="datepicker-month-arrow datepicker-month-arrow-previous"
+	                      @click="setPreviousMonth">
 	                    <svg
 		                    aria-hidden="true" focusable="false" data-prefix="fas" data-icon="chevron-left"
 		                    class="svg-inline--fa fa-chevron-left fa-w-10"
 		                    role="img" xmlns="http://www.w3.org/2000/svg"
 		                    viewBox="0 0 320 512">
 		                    <path
-		                          d="M34.52 239.03L228.87 44.69c9.37-9.37 24.57-9.37 33.94 0l22.67 22.67c9.36 9.36 9.37 24.52.04 33.9L131.49 256l154.02 154.75c9.34 9.38 9.32 24.54-.04 33.9l-22.67 22.67c-9.37 9.37-24.57 9.37-33.94 0L34.52 272.97c-9.37-9.37-9.37-24.57 0-33.94z">
+			                    d="M34.52 239.03L228.87 44.69c9.37-9.37 24.57-9.37 33.94 0l22.67 22.67c9.36 9.36 9.37 24.52.04 33.9L131.49 256l154.02 154.75c9.34 9.38 9.32 24.54-.04 33.9l-22.67 22.67c-9.37 9.37-24.57 9.37-33.94 0L34.52 272.97c-9.37-9.37-9.37-24.57 0-33.94z">
 		                    </path>
 	                    </svg>
 	                </span>
@@ -61,16 +62,17 @@
 			                xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"
 		                >
 			                <path
-			                      d="M207.029 381.476L12.686 187.132c-9.373-9.373-9.373-24.569 0-33.941l22.667-22.667c9.357-9.357 24.522-9.375 33.901-.04L224 284.505l154.745-154.021c9.379-9.335 24.544-9.317 33.901.04l22.667 22.667c9.373 9.373 9.373 24.569 0 33.941L240.971 381.476c-9.373 9.372-24.569 9.372-33.942 0z">
+				                d="M207.029 381.476L12.686 187.132c-9.373-9.373-9.373-24.569 0-33.941l22.667-22.667c9.357-9.357 24.522-9.375 33.901-.04L224 284.505l154.745-154.021c9.379-9.335 24.544-9.317 33.901.04l22.667 22.667c9.373 9.373 9.373 24.569 0 33.941L240.971 381.476c-9.373 9.372-24.569 9.372-33.942 0z">
 			                </path>
 		                </svg>
 	                </span>
-					<span class="datepicker-month-arrow datepicker-month-arrow-next" v-show="hasNextMonth" @click="setNextMonth">
+					<span class="datepicker-month-arrow datepicker-month-arrow-next" v-show="hasNextMonth"
+					      @click="setNextMonth">
 		                <svg
-		                    class="svg-inline--fa fa-chevron-right fa-w-10"
-		                    aria-hidden="true" focusable="false" data-prefix="fas" data-icon="chevron-right"
-		                    role="img" xmlns="http://www.w3.org/2000/svg"
-		                    viewBox="0 0 320 512">
+			                class="svg-inline--fa fa-chevron-right fa-w-10"
+			                aria-hidden="true" focusable="false" data-prefix="fas" data-icon="chevron-right"
+			                role="img" xmlns="http://www.w3.org/2000/svg"
+			                viewBox="0 0 320 512">
 		                    <path fill="currentColor"
 		                          d="M285.476 272.971L91.132 467.314c-9.373 9.373-24.569 9.373-33.941 0l-22.667-22.667c-9.357-9.357-9.375-24.522-.04-33.901L188.505 256 34.484 101.255c-9.335-9.379-9.317-24.544.04-33.901l22.667-22.667c9.373-9.373 24.569-9.373 33.941 0L285.475 239.03c9.373 9.372 9.373 24.568.001 33.941z">
 		                    </path>
@@ -115,7 +117,7 @@
 						v-for="n in yearsArr"
 						:key="n"
 						:id="n"
-						@wheel.prevent="onWheel($event, 'year')"
+						@wheel.prevent.stop="onWheel($event, 'year')"
 						@click="selectYear(n.toString())"
 					>
 						{{ n }}
@@ -130,7 +132,7 @@
 						v-for="n in monthsArr"
 						:key="n"
 						:id="n"
-						@wheel.prevent="onWheel($event, 'month')"
+						@wheel.prevent.stop="onWheel($event, 'month')"
 						@click="selectMonth(n)"
 					>
 						{{ n }}
@@ -214,7 +216,7 @@ export default defineComponent({
 			|| (+month.value.year === maxYear.value && month.value.index < maxDate.value.getMonth()));
 
 		let yearsArr = computed<number[]>(() => {
-			let arr = [];
+			let arr: number[] = [];
 			for (let y = minYear.value; y <= maxYear.value; y++) arr.push(y);
 			return arr;
 		});
@@ -275,8 +277,8 @@ export default defineComponent({
 	},
 	computed: {
 		monthsArr(): string[] {
-			const openedYear = +this.month.year;
-			let arr = [...this.localMonthsArr];
+			const openedYear: number = +this.month.year;
+			let arr: string = [...this.localMonthsArr];
 			if (openedYear === this.minYear) {
 				const firstMonthIndex = this.minDate.getMonth();
 				arr = this.localMonthsArr.slice(firstMonthIndex);
@@ -330,12 +332,8 @@ export default defineComponent({
 		this.setMonth();
 
 		for (let field of ['year', 'month']) {
-			let scrollingTimeout: any;
-			(this.$refs[field + 's'] as any).addEventListener('scroll', () => {
-				window.clearTimeout(scrollingTimeout);
-				scrollingTimeout = setTimeout(() => {
-					this.handleScroll(field as TWheel);
-				}, 100);
+			(this.$refs[field + 's'] as HTMLElement).addEventListener('scroll', () => {
+				this.handleScroll(field as TWheel);
 			});
 		}
 	},
@@ -356,6 +354,9 @@ export default defineComponent({
 		},
 		toggle(): void {
 			this.visible ? this.hide() : this.show();
+		},
+		getMonthIndex(name: string): number {
+			return this.localMonthsArr.indexOf(name);
 		},
 		setMonth(): void {
 			const _ = this;
@@ -407,8 +408,6 @@ export default defineComponent({
 			} else {
 				this.selectedDate = new Date(date);
 			}
-			this.month.year = this.selectedDate.getFullYear().toString();
-			this.month.index = this.selectedDate.getMonth();
 			this.russianDate = [
 				('0' + this.selectedDate.getDate()).slice(-2),
 				('0' + (+this.selectedDate.getMonth() + 1)).slice(-2),
@@ -472,31 +471,31 @@ export default defineComponent({
 				const pos = n.getBoundingClientRect().top - wheel.getBoundingClientRect().top;
 				return Math.round(pos);
 			}
-			const selectedNode = nodes.find(n => getPosition(n) >= 80 && getPosition(n) < 120)
-				?? wheel.scrollTop < 80 ? nodes[0] : nodes[nodes.length - 1];
-			const selected = selectedNode.id;
-			if (field === 'year') {
-				_.month.year = selected;
-				_.scrollToItem('year', selected);
-				if (!_.monthsArr.includes(_.month.name)) {
-					_.month.name = _.monthsArr[0];
-					_.month.index = _.localMonthsArr.indexOf(_.monthsArr[0]);
+			let selectedNode = nodes.find(n => getPosition(n) >= 80 && getPosition(n) < 120);
+			if (!selectedNode) {
+				if (wheel.scrollTop < 80) {
+					selectedNode = nodes[0];
+				} else {
+					selectedNode = nodes[nodes.length - 1];
 				}
-			} else {
-				_.month.name = selected;
-				_.month.index = _.localMonthsArr.indexOf(selected);
 			}
-			_.scrollToItem('month', _.month.name);
+			const id = selectedNode.id;
+			if (field === 'year') {
+				_.selectYear(id);
+				if (_.monthsArr.includes(_.month.name)) return;
+				_.month.index = _.getMonthIndex(_.monthsArr[0]);
+			} else {
+				_.month.index = _.getMonthIndex(id);
+			}
 		},
 		scrollToItem(field: TWheel, item: string): void {
 			let wheel: HTMLElement = this.$refs[field + 's'] as HTMLElement;
 			let top: number;
 			if (field === 'year') {
-				const startYear: number = this.minYear;
-				top = (+item - startYear) * 40;
+				top = (+item - this.minYear) * 40;
 			} else {
-				const index: number = this.localMonthsArr.indexOf(item);
-				const startIndex: number = this.localMonthsArr.indexOf(this.monthsArr[0]);
+				const index: number = this.getMonthIndex(item);
+				const startIndex: number = this.getMonthIndex(this.monthsArr[0]);
 				top = (index - startIndex) * 40;
 			}
 			wheel.scroll({
@@ -508,8 +507,7 @@ export default defineComponent({
 			this.scrollToItem('year', y);
 		},
 		selectMonth(m: string): void {
-			this.month.name = m;
-			this.month.index = this.localMonthsArr.indexOf(m);
+			this.month.index = this.getMonthIndex(m);
 			this.scrollToItem('month', m);
 		},
 		openYearSelect(): void {
