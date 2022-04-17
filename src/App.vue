@@ -20,7 +20,7 @@ export default {
 		return {
 			minDateStr: '2022-02-24',
 			maxDateStr: '2022-08-09',
-			defaultDateStr: '2022-03-05',
+			defaultDateStr: '2022-09-05',
 			holidays: [6, 7]
 		}
 	},

@@ -10,7 +10,8 @@
 			type="text"
 			:placeholder="$t('chooseDate')"
 			v-model.lazy="russianDate"
-			@change="setRussianDate"
+			@change="onInputChange"
+			@keyup="mask"
 			ref="input"
 			maxlength="10"
 		/>
@@ -78,19 +79,17 @@
 				</div>
 
 				<div class="datepicker-week">
-					<span class="datepicker-week-day">{{ $t('mo') }}</span>
-					<span class="datepicker-week-day">{{ $t('tu') }}</span>
-					<span class="datepicker-week-day">{{ $t('we') }}</span>
-					<span class="datepicker-week-day">{{ $t('th') }}</span>
-					<span class="datepicker-week-day">{{ $t('fr') }}</span>
-					<span class="datepicker-week-day">{{ $t('sa') }}</span>
-					<span class="datepicker-week-day">{{ $t('su') }}</span>
+					<span
+						v-for="weekDay in localWeekDays"
+						:key="weekDay"
+						class="datepicker-week-day"
+					>{{ $t(weekDay) }}</span>
 				</div>
 				<div class="datepicker-days" ref="daysContainer">
                 <span class="datepicker-day"
                       :class="{
                         'datepicker-day__disabled': day.disabled,
-                        'datepicker-day__active': day.number === selectedDate.getDate() && month.index === selectedDate.getMonth() && month.year === selectedDate.getFullYear()
+                        'datepicker-day__active': day.number === selectedDate.getDate() && month.index === selectedDate.getMonth() && +month.year === selectedDate.getFullYear()
                       }"
                       :style="dayStyle"
                       v-for="day in month.datesArr"
@@ -149,7 +148,7 @@
 </template>
 
 <script lang="ts">
-import type {TDateKebab} from '@/plugins/dates'
+import type {TDateKebab, TRussianDate} from '@/plugins/dates'
 import {getDateFromKebab} from '@/plugins/dates'
 import {computed, defineComponent, PropType, ref, reactive} from "vue";
 
@@ -171,14 +170,13 @@ export default defineComponent({
 		},
 		holidays: {
 			type: Array as PropType<number[]>,
-			required: false
+			required: true
 		}
 	},
 	setup(props, context) {
 		let selectedDate = ref<Date>(new Date());
 		let visible = ref<Boolean>(false);
 		let hasToOpen = ref<Boolean>(true);
-
 
 		type TMonthObj = {
 			index: number,
@@ -199,7 +197,8 @@ export default defineComponent({
 				number: 1
 			}]
 		});
-		let russianDate = ref<String>('');
+
+		let russianDate = ref<TRussianDate>('');
 		let dayStyle = ref<String>('');
 		let yearSelectOpened = ref<Boolean>(false);
 
@@ -221,16 +220,15 @@ export default defineComponent({
 		});
 
 		const isHoliday = (date: Date): Boolean => {
-			if (!props.holidays) return false;
 			const week = [7, 1, 2, 3, 4, 5, 6];
 			return props.holidays.includes(week[date.getDay()]);
 		}
 
 		const isDisabled = (date: Date): Boolean => {
 			return (
-				date.getTime() < minDate.value.getTime()
+				date < minDate.value
 				|| isHoliday(date)
-				|| date.getTime() > maxDate.value.getTime()
+				|| date > maxDate.value
 			);
 		}
 
@@ -271,11 +269,12 @@ export default defineComponent({
 				this.$t('october'),
 				this.$t('november'),
 				this.$t('december')
-			]
+			],
+			localWeekDays: ['mo', 'tu', 'we', 'th', 'fr', 'sa', 'su']
 		}
 	},
 	computed: {
-		monthsArr() {
+		monthsArr(): string[] {
 			const openedYear = +this.month.year;
 			let arr = [...this.localMonthsArr];
 			if (openedYear === this.minYear) {
@@ -290,43 +289,42 @@ export default defineComponent({
 	},
 	watch: {
 		russianDate(val) {
-			const dateStr = val.split('.').reverse().join('-');
+			const dateStr: string = val.split('.').reverse().join('-');
 			this.$emit('selectDate', dateStr);
 		},
-		defaultDate(val) {
-			this.selectedDate = new Date(val);
-			this.selectDate(this.selectedDate);
+		defaultDate: {
+			handler(val) {
+				this.selectDate(val);
+			},
+			immediate: true
 		},
-		minDate(val) {
-			if (this.selectedDate.getTime() < val.getTime()) {
-				this.selectedDate = new Date(val);
-				this.selectDate(this.selectedDate);
-			}
+		minDate: {
+			handler(val) {
+				if (this.selectedDate < val) {
+					this.selectDate(val);
+				}
+			},
+			immediate: true
 		},
-		maxDate(val) {
-			if (this.selectedDate.getTime() > val.getTime()) {
-				this.selectedDate = new Date(this.minDate);
-				this.selectDate(this.selectedDate);
-			}
+		maxDate: {
+			handler(val) {
+				if (this.selectedDate > val) {
+					this.selectDate(this.maxDate);
+				}
+			},
+			immediate: true
 		},
 		visible(val) {
 			this.$nextTick(() => {
 				if (!val) return;
 				if (!this.$refs.daysContainer) return;
-				const width = (this.$refs.daysContainer as any).offsetWidth / 7;
+				const width: number = (this.$refs.daysContainer as any).offsetWidth / 7;
 				this.dayStyle = `height: ${width}px`;
 				(this.$refs.calendar as any).style.height = 80 + width * 6 + 'px';
 			});
 		}
 	},
 	mounted() {
-		if (this.defaultDate) this.selectedDate = this.defaultDate;
-		if (this.selectedDate > this.maxDate) {
-			this.selectedDate = this.maxDate;
-		} else if (this.selectedDate < this.minDate) {
-			this.selectedDate = this.minDate;
-		}
-		this.selectDate(this.selectedDate);
 		this.month.index = this.selectedDate.getMonth();
 		this.month.year = this.selectedDate.getFullYear().toString();
 		this.setMonth();
@@ -360,32 +358,32 @@ export default defineComponent({
 			this.visible ? this.hide() : this.show();
 		},
 		setMonth(): void {
-			const {index, year} = this.month;
-			this.month.name = this.localMonthsArr[index];
+			const _ = this;
+			const {index, year} = _.month;
+			_.month.name = _.localMonthsArr[index];
 			const daysInMonth = 32 - new Date(+year, index, 32).getDate();
-			this.month.datesArr = [];
+			_.month.datesArr = [];
 			for (let day = 1; day <= daysInMonth; day++) {
 				const date: Date = new Date(+year, index, day);
 				const obj = {
 					date,
 					number: day,
-					disabled: this.isDisabled(date)
+					disabled: _.isDisabled(date)
 				}
-				this.month.datesArr.push(obj);
+				_.month.datesArr.push(obj);
 			}
 			const americanWeek = [6, 0, 1, 2, 3, 4, 5];
-			const firstDay = americanWeek[this.month.datesArr[0].date.getDay()];
-			this.$nextTick(() => {
-				if (this.$refs.datepicker) {
-					const firstDayNode = (this.$refs.datepicker as any).querySelector('.datepicker-day');
+			const firstDay = americanWeek[_.month.datesArr[0].date.getDay()];
+			_.$nextTick(() => {
+				if (_.$refs.datepicker) {
+					const firstDayNode = (_.$refs.datepicker as any).querySelector('.datepicker-day');
 					if (firstDayNode) firstDayNode.style.marginLeft = `calc(${firstDay} * 100% / 7)`;
 				}
 			});
-			this.month = Object.assign({}, this.month);
 		},
 		setPreviousMonth(): void {
 			if (this.month.index === 0) {
-				this.month.year = (+this.month.year - 1).toString()
+				this.month.year = (+this.month.year - 1).toString();
 				this.month.index = 11;
 			} else {
 				this.month.index--;
@@ -394,7 +392,7 @@ export default defineComponent({
 		},
 		setNextMonth(): void {
 			if (this.month.index === 11) {
-				this.month.year = (+this.month.year + 1).toString()
+				this.month.year = (+this.month.year + 1).toString();
 				this.month.index = 0;
 			} else {
 				this.month.index++;
@@ -403,11 +401,11 @@ export default defineComponent({
 		},
 		selectDate(date: Date): void {
 			if (date < this.minDate) {
-				this.selectedDate = this.minDate;
+				this.selectedDate = new Date(this.minDate);
 			} else if (date > this.maxDate) {
-				this.selectedDate = this.maxDate;
+				this.selectedDate = new Date(this.maxDate);
 			} else {
-				this.selectedDate = date;
+				this.selectedDate = new Date(date);
 			}
 			this.month.year = this.selectedDate.getFullYear().toString();
 			this.month.index = this.selectedDate.getMonth();
@@ -417,29 +415,51 @@ export default defineComponent({
 				this.month.year
 			].join('.');
 		},
-		setRussianDate(e: Event): void {
-			let str = (e.target as HTMLInputElement).value.replace(/\D/g, "");
-			let val = str.slice(0, 2) + '.' + str.slice(2, 4) + '.' + str.slice(-4);
-			if (!str) {
+		onInputChange(e: Event): void {
+			const val: string = (e.target as HTMLInputElement).value;
+			if (val.length < 10) {
 				this.selectDate(this.minDate);
-				return;
-			}
-			const dateArr = val.split('.').map(p => +p).reverse();
-			dateArr[1]--;
-			const userDate = new Date(dateArr[0], dateArr[1], dateArr[2]);
-			if (this.isDisabled(userDate)) {
-				let date = new Date(userDate);
-				while (this.isDisabled(date)) {
-					date.setDate(date.getDate() - 1);
-				}
-				this.selectDate(date);
 			} else {
+				const dateArr: number[] = val.split('.').map(p => +p);
+				dateArr[1]--;
+				const userDate: Date = new Date(dateArr[2], dateArr[1], dateArr[0]);
+				if (this.isDisabled(userDate)) {
+					while (this.isDisabled(userDate)) {
+						userDate.setDate(userDate.getDate() - 1);
+					}
+				}
 				this.selectDate(userDate);
+			}
+		},
+		mask(e: KeyboardEvent): void {
+			const input: HTMLInputElement = e.target as HTMLInputElement;
+			input.value = input.value.replace(/[^\d\.]/g, "");
+			if (e.key !== 'Backspace' && e.key !== '.') {
+				let arr: string[] = input.value.split('');
+				switch (input.value.length) {
+					case 2:
+						arr[2] = '.';
+						break;
+					case 3:
+						arr[3] = arr[2]
+						arr[2] = '.';
+						break;
+					case 5:
+						arr[5] = '.';
+						break;
+					case 6:
+						arr[6] = arr[5]
+						arr[5] = '.';
+						break;
+					default:
+						break;
+				}
+				input.value = arr.join('');
 			}
 		},
 		onWheel(e: WheelEvent, field: TWheel): void {
 			const wheel: HTMLElement = this.$refs[field + 's'] as HTMLElement;
-			const newPos = e.deltaY > 0 ? wheel.scrollTop + 40 : wheel.scrollTop - 40;
+			const newPos: number = e.deltaY > 0 ? wheel.scrollTop + 40 : wheel.scrollTop - 40;
 			wheel.scroll({
 				top: newPos
 			});
@@ -468,31 +488,31 @@ export default defineComponent({
 			}
 			_.scrollToItem('month', _.month.name);
 		},
-		scrollToItem(field: TWheel, item: string) {
+		scrollToItem(field: TWheel, item: string): void {
 			let wheel: HTMLElement = this.$refs[field + 's'] as HTMLElement;
 			let top: number;
 			if (field === 'year') {
-				const startYear = this.minYear;
+				const startYear: number = this.minYear;
 				top = (+item - startYear) * 40;
 			} else {
-				const index = this.localMonthsArr.indexOf(item);
-				const startIndex = this.localMonthsArr.indexOf(this.monthsArr[0]);
+				const index: number = this.localMonthsArr.indexOf(item);
+				const startIndex: number = this.localMonthsArr.indexOf(this.monthsArr[0]);
 				top = (index - startIndex) * 40;
 			}
 			wheel.scroll({
 				top
 			});
 		},
-		selectYear(y: string) {
+		selectYear(y: string): void {
 			this.month.year = y;
 			this.scrollToItem('year', y);
 		},
-		selectMonth(m: string) {
+		selectMonth(m: string): void {
 			this.month.name = m;
 			this.month.index = this.localMonthsArr.indexOf(m);
 			this.scrollToItem('month', m);
 		},
-		openYearSelect() {
+		openYearSelect(): void {
 			if (this.yearsArr.length > 1) {
 				this.yearSelectOpened = true;
 				this.$nextTick(() => {
@@ -501,44 +521,15 @@ export default defineComponent({
 				});
 			}
 		},
-		closeYearSelect() {
+		closeYearSelect(): void {
 			this.yearSelectOpened = false;
 			this.setMonth();
 		},
-		set() {
+		set(): void {
 			if (this.yearSelectOpened) {
 				this.closeYearSelect();
 			} else {
 				this.hide();
-			}
-		},
-		mask(e: KeyboardEvent): void {
-			const input: HTMLInputElement = e.target as HTMLInputElement;
-			input.value = input.value.replace(/[^\d\.]/g, "");
-			if (e.key !== 'Backspace' && e.key !== '.') {
-				let arr = input.value.split('');
-				switch (input.value.length) {
-					case 2:
-						arr[2] = '.';
-						input.value = arr.join('');
-						break;
-					case 3:
-						arr[3] = arr[2]
-						arr[2] = '.';
-						input.value = arr.join('');
-						break;
-					case 5:
-						arr[5] = '.';
-						input.value = arr.join('');
-						break;
-					case 6:
-						arr[6] = arr[5]
-						arr[5] = '.';
-						input.value = arr.join('');
-						break;
-					default:
-						break;
-				}
 			}
 		}
 	}
