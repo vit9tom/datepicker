@@ -8,14 +8,5 @@ module.exports = defineConfig({
             // localeDir: 'assets/locales',
             enableInSFC: true
         }
-    },
-    css: {
-        loaderOptions: {
-            less: {
-                additionalData: `
-                    @import "@/assets/main.less";
-                `
-            }
-        }
     }
 })

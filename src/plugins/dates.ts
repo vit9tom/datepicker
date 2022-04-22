@@ -15,7 +15,8 @@ class DateKebab {
     }
 }
 
-export const getDateFromKebab = (str: TDateKebab): Date => {
+export const getDateFromKebab = (str: TDateKebab | ''): Date => {
+    if (!str) return new Date();
     let dateArr: TDateArr = new DateKebab(str).toArr();
     if (dateArr.find(d => isNaN(d))) return new Date();
     dateArr[1]--;
