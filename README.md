@@ -2,7 +2,7 @@
 
 ## Project setup
 ```
-npm install
+npm i
 ```
 
 ### Compiles and hot-reloads for development
@@ -15,10 +15,7 @@ npm run serve
 npm run build
 ```
 
-### Lints and fixes files
+### Starts Storybook
 ```
-npm run lint
+npm run storybook
 ```
-
-### Customize configuration
-See [Configuration Reference](https://cli.vuejs.org/config/).
