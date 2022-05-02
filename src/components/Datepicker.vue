@@ -185,7 +185,6 @@ export default defineComponent({
 	setup(props, context) {
 		let selectedDate = ref<Date>(new Date());
 		let visible = ref<Boolean>(false);
-		let hasToOpen = ref<Boolean>(true);
 
 		type TMonthObj = {
 			index: number,
@@ -274,7 +273,6 @@ export default defineComponent({
 		return {
 			selectedDate,
 			visible,
-			hasToOpen,
 			month,
 			russianDate,
 			dayStyle,
